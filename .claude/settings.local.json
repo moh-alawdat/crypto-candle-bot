@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /home/m0h1337/.npm-global)",
+      "Bash(npm config *)",
+      "Read(//home/m0h1337/**)",
+      "Bash(echo 'export PATH=/home/m0h1337/.npm-global/bin:$PATH')",
+      "Read(//usr/local/lib/node_modules/@anthropic-ai/claude-code/bin/**)",
+      "Bash(sudo npm list -g --depth=0)",
+      "Bash(sudo npm uninstall -g @anthropic-ai/claude-code)",
+      "Bash(npm install *)",
+      "Bash(python3 -m py_compile binance_report.py)",
+      "Bash(python3 binance_report.py --symbol BTCUSDT --interval 1d --limit 5 --output /tmp/test_btc.csv)"
+    ]
+  }
+}
