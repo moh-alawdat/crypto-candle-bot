@@ -1,4 +1,4 @@
-# CryptoDataPuller
+# Crypto Candle Bot
 
 A Telegram bot that downloads crypto candle (kline) data from Binance and sends
 you a CSV report.
