@@ -5,11 +5,12 @@ you a CSV report.
 
 ## What it does
 
-You chat with the bot one question at a time:
+Send `/start` and the bot asks one question at a time:
 
-1. **Which coin?** (e.g. `ETHUSDT`)
-2. **Which timeframe?** (e.g. `1h`, `1d`)
-3. **How many candles?** (e.g. `20`)
+1. **Which coin?** (e.g. `ETHUSDT`) — typed in.
+2. **Which timeframe?** — tap a button (`1m`, `5m`, `1h`, `4h`, `1d`, `1w`, …)
+   or type any valid interval (e.g. `6h`).
+3. **How many candles?** — tap a preset (`20`, `50`, `100`, `200`) or type a number.
 
 It then downloads the data from Binance's public market-data endpoint and replies
 with a short summary (coin, timeframe, number of candles, change %, range %) plus
@@ -19,8 +20,19 @@ a CSV file. Each row has the candle's **open, close, high, low**, the **change**
 There is also a command-line version (`python binance_report.py`) if you prefer a
 terminal report instead of the bot.
 
-Only Telegram user IDs listed in `ALLOWED_USERS` can use the bot. Send `/myid` to
-the bot to find out your own ID.
+## Commands
+
+- `/start` — begin a new report.
+- `/help` — show what the bot does and the available commands.
+- `/myid` — show your Telegram user ID.
+- `/cancel` — stop the current report.
+
+## Access
+
+Only Telegram user IDs listed in `ALLOWED_USERS` can run reports. A user who is
+not on the list gets a short message telling them to send `/myid` and share that
+ID with the admin. `/help` and `/myid` are open to everyone so new users can
+onboard themselves.
 
 ## Install
 

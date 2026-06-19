@@ -23,7 +23,7 @@ import os
 import tempfile
 
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -43,6 +43,43 @@ logger = logging.getLogger(__name__)
 
 # Conversation steps.
 COIN, TIMEFRAME, COUNT = range(3)
+
+# Tap-to-select keyboards. Tapped buttons arrive as plain text messages, so the
+# existing text handlers validate them exactly like typed input. Every label
+# below is a member of binance_logic.VALID_INTERVALS; users can still type any
+# other valid interval (e.g. 3m, 6h, 8h) by hand.
+TIMEFRAME_KEYBOARD = ReplyKeyboardMarkup(
+    [["1m", "5m", "15m", "30m"],
+     ["1h", "2h", "4h", "12h"],
+     ["1d", "3d", "1w", "1M"]],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
+
+# Common candle counts; a custom number can still be typed.
+COUNT_KEYBOARD = ReplyKeyboardMarkup(
+    [["20", "50", "100", "200"]],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+)
+
+HELP_TEXT = (
+    "I download crypto candle data from Binance and send you a CSV report "
+    "with moving averages (MA7, MA21, MA50, MA200).\n\n"
+    "Commands:\n"
+    "/start - begin a new report (coin, timeframe, candle count)\n"
+    "/myid - show your Telegram user ID\n"
+    "/help - show this message\n"
+    "/cancel - stop the current report\n\n"
+    "Access is limited to approved users. If the bot doesn't respond to "
+    "/start, send /myid and share that number with the admin to be added."
+)
+
+NOT_AUTHORIZED_TEXT = (
+    "You're not authorized to use this bot yet.\n\n"
+    "Send /myid to get your Telegram user ID, then share it with the admin "
+    "to be added to the allow-list."
+)
 
 
 def parse_allowed(raw):
@@ -69,7 +106,9 @@ def restricted(func):
     async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
         user = update.effective_user
         if user is None or user.id not in ALLOWED_USERS:
-            logger.info("Ignoring message from user not on allow-list: %s", user.id if user else None)
+            logger.info("Message from user not on allow-list: %s", user.id if user else None)
+            if update.message:
+                await update.message.reply_text(NOT_AUTHORIZED_TEXT)
             return ConversationHandler.END
         return await func(update, context, *args, **kwargs)
     return wrapped
@@ -80,12 +119,18 @@ async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Your Telegram user ID is: {update.effective_user.id}")
 
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show what the bot does and how to use it (open to everyone)."""
+    await update.message.reply_text(HELP_TEXT)
+
+
 @restricted
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Greet the user and ask the first question."""
     await update.message.reply_text(
         "Hi! I download crypto candle data from Binance and send you a CSV report.\n\n"
-        "Which coin? (e.g. ETHUSDT)"
+        "Which coin? (e.g. ETHUSDT)",
+        reply_markup=ReplyKeyboardRemove(),
     )
     return COIN
 
@@ -94,7 +139,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ask_timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Store the coin, then ask for the timeframe."""
     context.user_data["symbol"] = update.message.text.strip().upper()
-    await update.message.reply_text("Which timeframe? (e.g. 1h, 1d)")
+    await update.message.reply_text(
+        "Which timeframe? (tap one below, or type e.g. 6h)",
+        reply_markup=TIMEFRAME_KEYBOARD,
+    )
     return TIMEFRAME
 
 
@@ -104,13 +152,17 @@ async def ask_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timeframe = update.message.text.strip()
     if timeframe not in VALID_INTERVALS:
         await update.message.reply_text(
-            "That timeframe is not valid. Please pick one like 1m, 5m, 1h, 4h, 1d, 1w.\n\n"
-            "Which timeframe? (e.g. 1h, 1d)"
+            "That timeframe is not valid. Please pick one below, or type one "
+            "like 1m, 5m, 1h, 4h, 1d, 1w.",
+            reply_markup=TIMEFRAME_KEYBOARD,
         )
         return TIMEFRAME
 
     context.user_data["interval"] = timeframe
-    await update.message.reply_text("How many candles? (e.g. 20)")
+    await update.message.reply_text(
+        "How many candles? (tap one below, or type a number)",
+        reply_markup=COUNT_KEYBOARD,
+    )
     return COUNT
 
 
@@ -121,7 +173,8 @@ async def make_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text.isdigit() or int(text) <= 0:
         await update.message.reply_text(
             "Please send a positive whole number.\n\n"
-            "How many candles? (e.g. 20)"
+            "How many candles? (tap one below, or type a number)",
+            reply_markup=COUNT_KEYBOARD,
         )
         return COUNT
 
@@ -129,7 +182,7 @@ async def make_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     interval = context.user_data["interval"]
     limit = int(text)
 
-    await update.message.reply_text("Downloading...")
+    await update.message.reply_text("Downloading...", reply_markup=ReplyKeyboardRemove())
 
     try:
         # get_report does blocking network I/O — run it off the event loop.
@@ -177,7 +230,10 @@ async def make_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @restricted
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Let the user stop the conversation."""
-    await update.message.reply_text("Okay, cancelled. Send /start to begin again.")
+    await update.message.reply_text(
+        "Okay, cancelled. Send /start to begin again.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
     return ConversationHandler.END
 
 
@@ -198,6 +254,7 @@ def main():
     )
 
     application.add_handler(CommandHandler("myid", myid))
+    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(conversation)
 
     logger.info("Bot starting. Allowed users: %s", sorted(ALLOWED_USERS) or "(none yet)")
