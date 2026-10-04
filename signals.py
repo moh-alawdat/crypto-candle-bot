@@ -53,19 +53,23 @@ def build_frame(rows):
     })
 
 
-def detect_signals(df, window_start_idx):
+def detect_signals(df, window_start_idx, window_end_idx=None):
     """Scan for signals; return (signals, stats).
 
     A flip at candle i means sar_dir changed from the previous candle (both
-    directions defined). Only candles at or after `window_start_idx` are counted.
-    Filters are applied in order so we can report how many survive each stage.
+    directions defined). Only candles in [window_start_idx, window_end_idx) are
+    counted (window_end_idx defaults to the end of the series). Filters are
+    applied in order so we can report how many survive each stage.
     """
+    if window_end_idx is None:
+        window_end_idx = len(df)
+
     signals = []
     n_flips = 0
     n_pass_ema = 0
     n_pass_both = 0
 
-    for i in range(window_start_idx, len(df)):
+    for i in range(window_start_idx, window_end_idx):
         prev_dir = df["sar_dir"].iloc[i - 1]
         cur_dir = df["sar_dir"].iloc[i]
 
