@@ -23,6 +23,16 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
+# --- make repo root + backtest/ subfolders importable (flat layout preserved) ---
+import sys as _sys
+import pathlib as _pathlib
+_ROOT = next(p for p in _pathlib.Path(__file__).resolve().parents
+             if (p / "binance_logic.py").exists())
+for _d in (_ROOT, _ROOT / "backtest", _ROOT / "backtest" / "runs",
+           _ROOT / "backtest" / "export", _ROOT / "backtest" / "checks"):
+    if str(_d) not in _sys.path:
+        _sys.path.insert(0, str(_d))
+
 from binance_logic import fetch_klines, build_rows
 from signals import (build_frame, detect_signals,
                      SYMBOL, INTERVAL, WINDOW_DAYS, TOTAL, OPEN_TIME_FMT)
@@ -36,7 +46,9 @@ TOTAL_FEE = FEE_PER_SIDE * 2
 WIN_NET = TP_PCT - TOTAL_FEE     # +0.90%
 LOSS_NET = SL_PCT + TOTAL_FEE    # -1.10% (magnitude)
 
-CSV_PATH = "backtest_trades.csv"
+_OUTPUT_DIR = _ROOT / "output"
+_OUTPUT_DIR.mkdir(exist_ok=True)
+CSV_PATH = str(_OUTPUT_DIR / "backtest_trades.csv")
 
 # Columns shared by the printed table and the CSV (no internal helper fields).
 TRADE_COLS = ["signal_time", "direction", "entry_time", "entry_price",

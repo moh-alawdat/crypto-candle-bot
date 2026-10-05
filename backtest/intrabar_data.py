@@ -24,7 +24,7 @@ from pathlib import Path
 import requests
 
 SYMBOL = "BTCUSDT"
-CACHE_DIR = Path(__file__).resolve().parent / "data"
+CACHE_DIR = Path(__file__).resolve().parent.parent / "data"  # repo-root/data
 MONTHLY_URL = ("https://data.binance.vision/data/spot/monthly/klines/"
                "{sym}/1m/{sym}-1m-{y:04d}-{m:02d}.zip")
 API_URL = "https://api.binance.com/api/v3/klines"

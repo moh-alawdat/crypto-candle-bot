@@ -10,6 +10,16 @@ import time
 
 import pandas as pd
 
+# --- make repo root + backtest/ subfolders importable (flat layout preserved) ---
+import sys as _sys
+import pathlib as _pathlib
+_ROOT = next(p for p in _pathlib.Path(__file__).resolve().parents
+             if (p / "binance_logic.py").exists())
+for _d in (_ROOT, _ROOT / "backtest", _ROOT / "backtest" / "runs",
+           _ROOT / "backtest" / "export", _ROOT / "backtest" / "checks"):
+    if str(_d) not in _sys.path:
+        _sys.path.insert(0, str(_d))
+
 from binance_logic import fetch_klines, build_rows
 from indicators import ema, macd, parabolic_sar
 

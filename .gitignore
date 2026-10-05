@@ -12,4 +12,7 @@ __pycache__/
 
 # Cached 1-minute market data
 data/
+
+# Generated backtest output (CSV + XLSX)
+output/
 *.xlsx
