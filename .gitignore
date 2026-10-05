@@ -9,3 +9,7 @@ __pycache__/
 *.csv
 .claude/
 .venv/
+
+# Cached 1-minute market data
+data/
+*.xlsx

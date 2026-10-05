@@ -86,7 +86,7 @@ def macd(closes, fast=12, slow=26, signal=9):
     return macd_line, signal_line, histogram
 
 
-def parabolic_sar(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
+def _sar_core(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
     """Parabolic SAR, ported line-for-line from TradingView's `ta.sar` reference.
 
     TradingView documents `ta.sar(start, inc, max)` with an equivalent Pine
@@ -105,9 +105,10 @@ def parabolic_sar(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
 
     `maxMin` is Pine's name for the extreme point (EP); `acceleration` is the AF.
 
-    Returns (sar, direction) as two aligned pandas Series, direction +1 for an
-    uptrend bar (isBelow True) and -1 for a downtrend bar. The first bar has no
-    defined SAR (na in Pine), so it is left as NaN / 0.
+    Returns parallel lists (sar, direction, trigger); the public wrappers
+    `parabolic_sar` and `parabolic_sar_trigger` wrap these as pandas Series.
+    direction is +1 uptrend / -1 downtrend; bar 0 has no SAR (NaN / 0). `trigger`
+    is the pre-reversal projected level for each bar (see parabolic_sar_trigger).
     """
     highs = [float(h) for h in highs]
     lows = [float(l) for l in lows]
@@ -116,6 +117,9 @@ def parabolic_sar(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
 
     sar = [np.nan] * n
     direction = [0] * n
+    # Pre-reversal SAR level for each bar (the level price must cross to flip),
+    # captured right after the projection step, before the reversal test / clamp.
+    trigger = [np.nan] * n
 
     # Pine `var` state — persists across bars; starts as na (None here).
     result = None        # var float result = na        (the SAR value)
@@ -143,6 +147,9 @@ def parabolic_sar(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
         # result := result + acceleration * (maxMin - result)
         if result is not None:
             result = result + acceleration * (maxMin - result)
+            # This projected value — before the reversal test and clamp — is the
+            # level price must cross on this bar; it is known at the bar's open.
+            trigger[i] = result
 
         # Reversal test on the raw result. In Pine `if isBelow` treats na as
         # false, so these only fire once isBelow has been initialised.
@@ -191,4 +198,27 @@ def parabolic_sar(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
             sar[i] = result
             direction[i] = 1 if isBelow else -1
 
+    return sar, direction, trigger
+
+
+def parabolic_sar(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
+    """Parabolic SAR -> (sar, direction) pandas Series. See `_sar_core`.
+
+    Output is unchanged from before this variant: +1 uptrend, -1 downtrend,
+    NaN / 0 on bar 0.
+    """
+    sar, direction, _ = _sar_core(highs, lows, closes, start, increment, maximum)
     return pd.Series(sar, dtype="float64"), pd.Series(direction, dtype="int64")
+
+
+def parabolic_sar_trigger(highs, lows, closes, start=0.02, increment=0.02, maximum=0.2):
+    """Per-bar SAR trigger level: the SAR value *before any reversal* on that bar
+    — the level price must cross to flip — which is known at the bar's open.
+
+    This is the raw projected `result` from Pine's recursion, taken before the
+    reversal test and the two-bar clamp, i.e. exactly the threshold the reversal
+    test compares price against. Exposed for the intrabar-entry variant without
+    altering `parabolic_sar`'s outputs.
+    """
+    _, _, trigger = _sar_core(highs, lows, closes, start, increment, maximum)
+    return pd.Series(trigger, dtype="float64")
